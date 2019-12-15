@@ -1,11 +1,9 @@
 use reqwest;
-use rusqlite;
 
-error_chain! {
+error_chain!{
     foreign_links {
         Io(::std::io::Error);
-        Reqwest(reqwest::Error);
         ReqwestUrl(reqwest::UrlError);
-        Rusqlite(rusqlite::Error);
+        Reqwest(reqwest::Error);
     }
 }
