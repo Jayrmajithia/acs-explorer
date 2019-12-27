@@ -3,28 +3,27 @@ use std::cmp::Ordering;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name="acs-explorer")]
-pub struct Clicommand {
+pub struct CliCommand {
     #[structopt(short="y", long="year")]
     pub year: String,
     #[structopt(short="e", long="acs-estimate")]
     pub estimate: String,
-    #[structopt(subcommand)]
-    pub command: Command,
+    #[structopt(short="l", long="load")]
+    pub load: bool,
+    #[structopt(short="t", long="table-id")]
+    pub table_id: String,
+    #[structopt(short="p", long="pretty")]
+    pub prettify: bool,
+    #[structopt(short="c", long="config")]
+    pub config: bool,
+    #[structopt(short="u", long="username")]
+    pub username: String,
+    #[structopt(short="s", long="schema")]
+    pub schema: String,
+    #[structopt(short="d", long="database")]
+    pub database: String,
 }
 
-#[derive(Debug, StructOpt)]
-pub enum Command {
-    #[structopt(name="Pretty Table", alias="p")]
-    PrettyTable{
-        #[structopt(short="t", long="table-id")]
-        table_id: String,
-    },
-    #[structopt(name="ETL Config table", alias="c")]
-    ConfigTable{
-        #[structopt(short="t", long="table-id")]
-        table_id: String
-    }
-}
 
 fn parse_table_id(id:&str) -> (String, String, String) {
     let mut i = id.clone();
@@ -39,12 +38,12 @@ fn parse_table_id(id:&str) -> (String, String, String) {
     }
 }
 
+// ToDo: Add support to store the estimates in the table
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TableVersion {
     pub table_id: String,
     pub min_year: i32,
     pub max_year: i32,
-    pub estimate: Vec<String>,
     pub record: Vec<TableRecord>,
 }
 

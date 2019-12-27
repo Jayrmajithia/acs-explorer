@@ -2,6 +2,7 @@ use reqwest::{Url, Client, Method};
 use std::collections::HashMap;
 use error::*;
 use cli::{Table, TableRecord};
+use load::fetch_details;
 
 const CENSUS_URL:&str = "https://api.census.gov/data/";
 const VARIABLE_BASE:&str = "variables.json";
@@ -47,8 +48,10 @@ fn format_table(year:&str, table: HashMap<String, Vec<Vec<String>>>, acs_est:&st
     for (table_id, table_details) in table.iter() {
         let mut r = Vec::new();
         for col_details in table_details.iter() {
+            let mut cid = col_details[0].to_string();
+            cid.truncate(3);
             r.push(TableRecord{
-                column_id: col_details[0].to_string(),
+                column_id: cid.clone(),
                 label: col_details[1].to_string(),
             });
         }
@@ -65,46 +68,94 @@ fn format_table(year:&str, table: HashMap<String, Vec<Vec<String>>>, acs_est:&st
     tables
 }
 
-pub fn format_label(records: &Table) -> String {
+pub fn format_label(schema: &str, database: &str, username: &str, load: &bool, records: &Table) -> Result<String> {
     let mut res: String = "".to_string();
     let indent = "    ";
-    for column in records.record.iter() {
-        let cid = &column.column_id;
-        let label = &column.label;
-        let pattern = "!!";
-        let split_index = match label.rfind(pattern) {
-            Some(i) => i+2,
-            None => 0
-        };
-        let (indents, label) = label.split_at(split_index);
-        let indents: String = indents.split(pattern).skip(3).map(|_| indent).collect();
-        let label = label.trim_end_matches(":");
-        res.push_str(&format!("{}|{}{}\n", cid, indents, label)[..]);
+    if !load {
+        for column in records.record.iter() {
+            let cid = &column.column_id;
+            let label = &column.label;
+            let pattern = "!!";
+            let split_index = match label.rfind(pattern) {
+                Some(i) => i + 2,
+                None => 0
+            };
+            let (indents, label) = label.split_at(split_index);
+            let indents: String = indents.split(pattern).skip(3).map(|_| indent).collect();
+            let label = label.trim_end_matches(":");
+            res.push_str(&format!("{}|{}{}\n", cid, indents, label)[..]);
+        }
+    } else {
+        let result = fetch_details(database, username, schema, records)?;
+        res.push_str(&format!("Table Id: {}\n", result.table_id));
+        res.push_str(&format!("Min Year: {}\n", result.min_year));
+        res.push_str(&format!("Max Year: {}\n", result.max_year));
+        res.push_str("---------------------------------------------------------------------------------------------------------------------\n");
+        for column in result.record.iter() {
+            let cid = &column.column_id;
+            let label = &column.label;
+            let pattern = "!!";
+            let split_index = match label.rfind(pattern) {
+                Some(i) => i + 2,
+                None => 0
+            };
+            let (indents, label) = label.split_at(split_index);
+            let indents: String = indents.split(pattern).skip(3).map(|_| indent).collect();
+            let label = label.trim_end_matches(":");
+            res.push_str(&format!("{}|{}{}\n", cid, indents, label)[..]);
+        }
     }
-    res.to_string()
+    Ok(res)
 }
 
-pub fn format_table_config(records: &Table) -> String {
+
+pub fn format_table_config(schema: &str, database: &str, username: &str, load: &bool, records: &Table) -> Result<String> {
     let mut res: String = "".to_string();
-    for column in  records.record.iter() {
-        let cid = &column.column_id;
-        let pattern = "!!";
-        let mut label: String;
-        let split_index = match &column.label.find(pattern) {
-            Some(i) => i + 2,
-            None => 0
-        };
-        let (_, good_label) = &column.label.split_at(split_index);
-        if cid != "001" {
-            label = good_label.to_owned().replace("Total!!", "");
-        } else {
-            label = good_label.to_owned().to_string();
+    if !load {
+        for column in records.record.iter() {
+            let cid = &column.column_id;
+            let pattern = "!!";
+            let mut label: String;
+            let split_index = match &column.label.find(pattern) {
+                Some(i) => i + 2,
+                None => 0
+            };
+            let (_, good_label) = &column.label.split_at(split_index);
+            if cid != "001" {
+                label = good_label.to_owned().replace("Total!!", "");
+            } else {
+                label = good_label.to_owned().to_string();
+            }
+            label = label.replace(pattern, "_").replace("'", "");
+            label = to_camelcase(&label);
+            res.push_str(&format!("{}: {:?}\n", cid, label)[..]);
         }
-        label = label.replace(pattern, "_").replace("'", "");
-        label = to_camelcase(&label);
-        res.push_str(&format!("{}: {:?}\n", cid, label)[..]);
+    } else {
+        let result = fetch_details(database, username, schema, records)?;
+        res.push_str(&format!("Table Id: {}\n", result.table_id));
+        res.push_str(&format!("Min Year: {}\n", result.min_year));
+        res.push_str(&format!("Max Year: {}\n", result.max_year));
+        res.push_str("---------------------------------------------------------------------------------------------------------------------\n");
+        for column in result.record.iter() {
+            let cid = &column.column_id;
+            let pattern = "!!";
+            let mut label: String;
+            let split_index = match &column.label.find(pattern) {
+                Some(i) => i + 2,
+                None => 0
+            };
+            let (_, good_label) = &column.label.split_at(split_index);
+            if cid != "001" {
+                label = good_label.to_owned().replace("Total!!", "");
+            } else {
+                label = good_label.to_owned().to_string();
+            }
+            label = label.replace(pattern, "_").replace("'", "");
+            label = to_camelcase(&label);
+            res.push_str(&format!("{}: {:?}\n", cid, label)[..]);
+        }
     }
-    res
+    Ok(res)
 }
 
 fn to_camelcase(s: &str) -> String {
