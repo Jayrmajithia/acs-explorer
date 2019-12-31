@@ -167,4 +167,3 @@ fn to_camelcase(s: &str) -> String {
         }
     }).collect()
 }
-

@@ -27,12 +27,12 @@ pub fn fetch_details(database: &str, username: &str, schema: &str, table: &Table
         Ok(s) => s,
         Err(_) => "".to_string(),
     };
-    let rows = output.split("\r\n");
+    let rows: Vec<&str> = output.split("\n").collect();
     let mut records:Vec<TableRecord> = Vec::new();
     let mut count = 0;
     let mut min_year:i32 = 0;
     let mut max_year:i32 = 0;
-    for row in rows {
+    for row in rows.iter() {
         let r: Vec<&str> = row.split("|").collect();
         if count == 0 || count == 1 || r.len() == 1{
             count += 1;
@@ -81,13 +81,12 @@ fn compare(database: &str, username: &str, schema: &str, table: &Table) -> Resul
     let results = fetch_details(database, username, schema, table)?;
     let year = table.year.parse::<i32>().unwrap();
     if results.record.len()!= table.record.len() {
+        println!("{}, {}", results.record.len(), table.record.len());
         println!("the table {} is different as length is different", table.table_id);
         return Ok(());
-//        panic!("The Table are different");
     }
     for i in 0..results.record.len() {
         if results.record[i].label.len() != table.record[i].label.len() {
-//            return Err("The tables are different".into())
             println!("the table {} is different", table.table_id);
             return Ok(());
         }
